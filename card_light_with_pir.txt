@@ -1,0 +1,37 @@
+type: custom:auto-entities
+card:
+  type: entities
+filter:
+  template: >
+
+    {% if is_state('input_select.impostazione_di_accensione_luce','Mai')%}
+    input_select.impostazione_di_accensione_luce {% elif
+    is_state('input_select.impostazione_di_accensione_luce','Sempre')%}
+    input_select.impostazione_di_accensione_luce {% elif
+    is_state('input_select.impostazione_di_accensione_luce','Dopo il
+    tramonto')%} input_select.impostazione_di_accensione_luce {% elif
+    is_state('input_select.impostazione_di_accensione_luce','Fascia Oraria')%}
+    input_select.impostazione_di_accensione_luce
+    input_datetime.orario_inizio_accensione_luce
+    input_datetime.orario_fine_accensione_luce {%endif%}
+
+
+    {% if is_state('input_select.impostazione_di_spegnimento_luce','Mai')%}
+    input_select.impostazione_di_spegnimento_luce {% elif
+    is_state('input_select.impostazione_di_spegnimento_luce','Sempre')%}
+    input_select.impostazione_di_spegnimento_luce 
+    input_select.ritardo_di_spegnimento_luce
+    input_number.ritardo_spegnimento_luce
+
+    {% elif is_state('input_select.impostazione_di_spegnimento_luce','Dopo il
+    tramonto')%}  input_select.impostazione_di_spegnimento_luce
+    input_select.ritardo_di_spegnimento_luce
+    input_number.ritardo_spegnimento_luce
+
+
+    {% elif is_state('input_select.impostazione_di_spegnimento_luce','Fascia
+    Oraria')%} input_select.impostazione_di_spegnimento_luce
+    input_datetime.orario_inizio_spegnimento_luce
+    input_datetime.orario_fine_spegnimento_luce 
+    input_select.ritardo_di_spegnimento_luce
+    input_number.ritardo_spegnimento_luce {%endif%}

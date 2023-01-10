@@ -1,0 +1,202 @@
+homeassistant:
+  customize:
+    package.node_anchors:
+      author: "Marco Picardo"
+      reference: "https://github.com/marco-hacs"
+
+##########################################
+# INSERIRE LE ENTITA' 
+      Sensori di movimento: &pir 
+        - binary_sensor.luce_studio
+        # - secondo sensore pir
+
+      Luci da accendere (supporta switch e light): &light 
+        - switch.luce_studio
+        #- seconda luce 
+
+##########################################
+input_select:
+  impostazione_di_accensione_luce:
+    name: Impostazione di accensione Luce
+    options:
+      - Mai
+      - Sempre
+      - Dopo il tramonto
+      - Fascia Oraria
+
+  impostazione_di_spegnimento_luce:
+    name: Impostazione di spegnimento Luce 
+    options:
+      - Mai
+      - Sempre
+      - Dopo il tramonto
+      - Fascia Oraria
+
+  ritardo_di_spegnimento_luce:
+    name: Ritardo di spegnimento Luce 
+    options:
+      - Ore
+      - Minuti
+      - Secondi
+
+input_datetime:
+  orario_inizio_accensione_luce:
+    name: Orario Inizio Accensione Luce
+    has_date: false
+    has_time: true
+
+  orario_fine_accensione_luce:
+    name: Orario Fine Accensione Luce
+    has_date: false
+    has_time: true
+
+  orario_inizio_spegnimento_luce:
+    name: Orario Inizio spegnimento Luce
+    has_date: false
+    has_time: true
+
+  orario_fine_spegnimento_luce:
+    name: Orario Fine spegnimento Luce
+    has_date: false
+    has_time: true
+
+input_number:
+
+  ritardo_spegnimento_luce:
+    name: Ritardo Spegnimento
+    min: 0
+    max: 600
+    step: 1
+    mode: box
+
+timer:
+  timer_spegnimento_luce:
+    name: Timer Spegnimento Luce
+    restore: true
+
+automation:
+- id: automazione_accensione_luce_con_pir
+  alias: Automazione accensione luice con pir
+  mode: restart
+  variables: 
+    mode_on: "{{states('input_select.impostazione_di_accensione_luce')}}"
+    mode_off: "{{states('input_select.impostazione_di_spegnimento_luce')}}"
+    delay: "{{states('input_number.ritardo_spegnimento_luce')|int}}"
+    pir: *pir
+  trigger:
+  - platform: state
+    entity_id: 
+      *pir
+    from:
+      - 'off'
+      - 'on'
+    to:
+      - 'off'
+      - 'on'
+  - platform: event
+    event_type: timer.finished
+    event_data:
+      entity_id: timer.timer_spegnimento_luce
+  action:
+  - alias: Avvia timer per spegnimento Luce
+    if:
+      - "{{ trigger.to_state.state == 'off'}}"
+    then:
+      - alias: Se impostato su Mai
+        if:
+          - alias: "Se luce accesa"
+            condition: state
+            entity_id: *light
+            state: "on"
+        then:
+          - alias: Se modalita impostato su mai, interrompi automazione altrimenti fai partire il timer
+            if: 
+              - "{{mode_off == 'Mai'}}"
+            then:
+              - alias: Modalità impostata su Mai
+                stop: Non spegnere la luce
+            else:
+              - service: timer.start
+                data:
+                  duration: 
+                    hours:   "{{ delay if is_state('input_select.ritardo_di_spegnimento_luce','Ore') else '0' }}"
+                    minutes: "{{ delay if is_state('input_select.ritardo_di_spegnimento_luce','Minuti') else '0' }}"
+                    seconds: "{{ delay if is_state('input_select.ritardo_di_spegnimento_luce','Secondi') else '0' }}"
+                target:
+                  entity_id: timer.timer_spegnimento_luce
+  - alias: Timer terminato spegni luce
+    if:
+      - "{{trigger.platform == 'event'}}"
+    then:
+      - alias: "Verifica modalità di spegnimento"
+        choose:
+        - alias: Sempre
+          conditions:
+            - "{{ mode_off == 'Sempre' }}"
+          sequence:
+            - alias: "Spegni Luce Sempre"
+              service: homeassistant.turn_off
+              target:
+                entity_id: 
+                  *light
+        - alias: Dopo il tramonto
+          conditions:
+            - "{{ mode_off == 'Dopo il tramonto' and  is_state('sun.sun','below_horizon')}}"
+          sequence:
+            - alias: "Spegni Luce Dopo il tramonto"
+              service: homeassistant.turn_off
+              target:
+                entity_id: 
+                  *light
+        - alias: Fascia Oraria
+          conditions:
+            - "{{ mode_off == 'Fascia Oraria' }}"
+            - "{{ now()>= today_at(states('input_datetime.orario_inizio_spegnimento_luce')) and now() <= today_at(states('input_datetime.orario_fine_spegnimento_luce'))}}"
+          sequence:
+            - alias: "Spegni Luce nella Fascia Oraria"
+              service: homeassistant.turn_off
+              target:
+                entity_id: 
+                  *light
+        default:
+            - alias: Modalità impostata su Mai
+              stop: Non spegnere la luce
+  - alias: Accensione Luce
+    if:
+      - "{{ trigger.to_state.state == 'on'}}"
+    then:
+      - alias: "Verifica modalità di accensione"
+        choose:
+        - alias: Sempre
+          conditions:
+            - "{{ mode_on == 'Sempre' }}"
+          sequence:
+            - alias: "Accendi LuceSempre"
+              service: homeassistant.turn_on
+              target:
+                entity_id: 
+                  *light
+        - alias: Dopo il tramonto
+          conditions:
+            - "{{ mode_on == 'Dopo il tramonto' and is_state('sun.sun','below_horizon')}}"
+          sequence:
+            - alias: "Accendi Luce Dopo il tramonto"
+              service: homeassistant.turn_on
+              target:
+                entity_id: 
+                  *light
+        - alias: Fascia Oraria
+          conditions:
+            - "{{ mode_on == 'Fascia Oraria' }}"
+            - "{{ now()>= today_at(states('input_datetime.orario_inizio_accensione_luce')) and now() <= today_at(states('input_datetime.orario_fine_accensione_luce'))}}"
+          sequence:
+            - alias: "Accendi Luce nella Fascia Oraria"
+              service: homeassistant.turn_on
+              target:
+                entity_id: 
+                  *light
+        default:
+            - alias: Modalità impostata su Mai
+              stop: Non accendere la luce
+
+
