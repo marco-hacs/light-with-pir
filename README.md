@@ -36,3 +36,4 @@ Install from HACS the custom <i>[auto-entities](https://github.com/thomasloven/l
 
 https://user-images.githubusercontent.com/62516592/211549770-c25cc061-8fdc-435b-b60b-e5b203462646.mp4
 
+https://community.home-assistant.io/t/light-with-pir/518043
